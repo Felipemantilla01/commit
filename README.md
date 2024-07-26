@@ -29,6 +29,7 @@ This command will start an interactive prompt asking for the following informati
 
 1. **AI Provider**: Currently, only Anthropic is supported.
 2. **API Token**: Enter your API token for the selected AI provider.
+3. **Commit Types**: Select the commit types you want to use or add custom types.
 
 The configuration will be saved in a file named `commit-config.json` in the current directory.
 
@@ -57,7 +58,7 @@ commit -S
 
 ## Command Line Options
 
-- `--setup`: Run the initial setup to specify the AI provider and API token.
+- `--setup`: Run the initial setup to specify the AI provider, API token, and commit types.
 - `-S`, `--gpg-sign`: Sign commits with GPG.
 
 ## Example
