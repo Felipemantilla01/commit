@@ -1,5 +1,9 @@
 {
   "name": "@felipemantilla01/commit",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Felipemantilla01/commit"
+  },
   "version": "1.0.8",
   "description": "",
   "main": "bin/cli.js",
