@@ -1,92 +1,124 @@
 #!/usr/bin/env node
 
-const inquirer = require('inquirer');
-const fs = require('fs');
-const path = require('path');
-const { exec } = require('child_process');
-const { Anthropic } = require('@anthropic-ai/sdk');
-const promp = inquirer.createPromptModule();
+import inquirer from 'inquirer';
+import fs from 'fs/promises';
+import path from 'path';
+import { exec } from 'child_process';
+import { Anthropic } from '@anthropic-ai/sdk';
+import chalk from 'chalk';
+import { fileURLToPath } from 'url';
+import yargs from 'yargs';
+import { hideBin } from 'yargs/helpers';
 
-const [, , ...args] = process.argv;
+const prompt = inquirer.createPromptModule();
+
+// Use import.meta.url to get the current module's path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Parse command line arguments
+const argv = yargs(hideBin(process.argv))
+    .option('S', {
+        alias: 'gpg-sign',
+        type: 'boolean',
+        description: 'GPG-sign commits'
+    })
+    .option('setup', {
+        type: 'boolean',
+        description: 'Run setup'
+    })
+    .help()
+    .argv;
 
 async function setup() {
-    console.log('Ejecutando setup...');
+    console.log(chalk.blue('Running setup...'));
 
     const questions = [
         {
             type: 'list',
             name: 'aiProvider',
-            message: '¿Qué proveedor de AI quieres usar?',
+            message: 'Which AI provider do you want to use?',
             choices: ['OpenAI', 'Anthropic'],
         },
         {
             type: 'input',
             name: 'apiToken',
-            message: 'Introduce tu token de API:',
-            validate: input => input.length > 0 ? true : 'Por favor, introduce un token válido.',
+            message: 'Enter your API token:',
+            validate: input => input.length > 0 ? true : 'Please enter a valid token.',
         },
     ];
 
-    const answers = await promp(questions);
+    const answers = await prompt(questions);
 
-    // Guardar la configuración
+    // Save configuration
     const config = JSON.stringify(answers, null, 2);
     const configPath = path.join(process.cwd(), 'commit-config.json');
 
-    fs.writeFileSync(configPath, config);
+    await fs.writeFile(configPath, config);
 
-    console.log(`Configuración guardada en ${configPath}`);
+    console.log(chalk.green(`Configuration saved in ${configPath}`));
 }
 
-
 async function defaultCommand() {
-    console.log('Ejecutando commit...');
+    console.log(chalk.blue('Executing commit...'));
 
     const configPath = path.join(process.cwd(), 'commit-config.json');
 
-    if (!fs.existsSync(configPath)) {
-        console.log('No se encontró configuración. Por favor, ejecuta "commit setup" primero.');
+    try {
+        await fs.access(configPath);
+    } catch (error) {
+        console.log(chalk.red('Configuration not found. Please run "commit --setup" first.'));
         return;
     }
 
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    const config = JSON.parse(await fs.readFile(configPath, 'utf8'));
 
     if (config.aiProvider !== 'Anthropic') {
-        console.log('Este comando solo funciona con Anthropic por ahora.');
+        console.log(chalk.yellow('This command only works with Anthropic for now.'));
         return;
     }
 
-    // Leer archivos en staging
+    // Read files in staging
     const stagedFiles = await getStagedFiles();
 
-    if (stagedFiles.length !== 0 && stagedFiles[0] === '') {
-        console.log('No hay archivos en staging. Añade archivos antes de hacer commit.');
+    if (stagedFiles.length === 0 || stagedFiles[0] === '') {
+        console.log(chalk.yellow('No files in staging. Add files before committing.'));
         return;
     }
 
-    // Leer el contenido de los archivos en staging
+    // Read the content of staged files
     const filesContent = await getFilesContent(stagedFiles);
 
-    console.log('Archivos en staging:\n', filesContent);
-    return 
-
-    // Generar mensaje de commit usando Claude
+    // Generate commit message using Claude
     const commitMessage = await generateCommitMessage(config.apiToken, filesContent);
 
-    // Mostrar el mensaje generado y pedir confirmación
-    const { confirmCommit } = await promp([
+    console.log(chalk.cyan('\n=== Generated Commit Message ==='));
+    console.log(chalk.white('----------------------------------'));
+    
+    // Split the commit message into subject and body
+    const [subject, ...body] = commitMessage.split('\n');
+    
+    console.log(chalk.green.bold(subject));  // Print subject in green and bold
+    if (body.length > 0) {
+        console.log(chalk.white('----------------------------------'));
+        console.log(chalk.white(body.join('\n')));  // Print body in white
+    }
+    console.log(chalk.white('----------------------------------\n'));
+
+    // Ask for confirmation
+    const { confirmCommit } = await prompt([
         {
             type: 'confirm',
             name: 'confirmCommit',
-            message: `Mensaje de commit generado:\n\n${commitMessage}\n\n¿Quieres usar este mensaje?`,
+            message: 'Do you want to use this message?',
         }
     ]);
 
     if (confirmCommit) {
-        await makeCommit(commitMessage);
-        console.log('Commit realizado con éxito.');
+        await makeCommit(commitMessage, argv.S);
+        console.log(chalk.green('Commit successfully made.'));
     } else {
-        console.log('Commit cancelado.');
+        console.log(chalk.yellow('Commit cancelled.'));
     }
 }
 
@@ -94,11 +126,11 @@ async function getStagedFiles() {
     return new Promise((resolve, reject) => {
         exec('git diff --cached --name-only', (error, stdout, stderr) => {
             if (error) {
-                reject(`Error al obtener archivos en staging: ${error.message}`);
+                reject(`Error getting staged files: ${error.message}`);
                 return;
             }
             if (stderr) {
-                reject(`Error al obtener archivos en staging: ${stderr}`);
+                reject(`Error getting staged files: ${stderr}`);
                 return;
             }
             resolve(stdout.trim().split('\n'));
@@ -110,7 +142,7 @@ async function getFilesContent(files) {
     let content = '';
     for (const file of files) {
         content += `File: ${file}\n`;
-        content += await fs.promises.readFile(file, 'utf8');
+        content += await fs.readFile(file, 'utf8');
         content += '\n\n';
     }
     return content;
@@ -121,31 +153,64 @@ async function generateCommitMessage(apiToken, filesContent) {
         apiKey: apiToken,
     });
 
-    const response = await anthropic.completions.create({
-        model: "claude-2",
-        prompt: `Por favor, genera un mensaje de commit conciso y descriptivo basado en los siguientes cambios:\n\n${filesContent}\n\nMensaje de commit:`,
-        max_tokens_to_sample: 100,
+    const response = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: 1024,
+        messages: [
+            {
+                role: "user",
+                content: `
+                Analyze the following Git diff and generate a concise, informative commit message following these best practices:
+
+                1. Start with a commit type prefix followed by a colon and space. Use one of these types:
+                    - feat: A new feature
+                    - fix: A bug fix
+                    - docs: Documentation only changes
+                    - style: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+                    - refactor: A code change that neither fixes a bug nor adds a feature
+                    - perf: A code change that improves performance
+                    - test: Adding missing tests or correcting existing tests
+                    - chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+
+                2. After the type, use the imperative mood (e.g., 'Add feature' not 'Added feature')
+                3. Keep the first line (subject) under 50 characters, including the type
+                4. Capitalize the subject line after the commit type
+                5. Do not end the subject line with a period
+                6. Separate subject from body with a blank line
+                7. Wrap the body at 72 characters
+                8. Use the body to explain what and why, not how
+
+                If multiple files or significant changes are involved, use a multi-line commit message with a brief subject line followed by a more detailed explanation in the body.
+
+                Git diff:
+                ${filesContent}
+
+                Generate the commit message now:
+                `
+            }
+        ]
     });
 
-    return response.completion.trim();
+    return response.content[0].text;
 }
 
-async function makeCommit(message) {
+async function makeCommit(message, sign = false) {
+    const signFlag = sign ? '-S ' : '';
     return new Promise((resolve, reject) => {
-        exec(`git commit -m "${message}"`, (error, stdout, stderr) => {
+        exec(`git commit ${signFlag}-m "${message}"`, (error, stdout, stderr) => {
             if (error) {
-                reject(`Error al hacer commit: ${error.message}`);
+                reject(`Error making commit: ${error.message}`);
                 return;
             }
             if (stderr) {
-                console.warn(`Advertencia al hacer commit: ${stderr}`);
+                console.warn(chalk.yellow(`Warning while making commit: ${stderr}`));
             }
             resolve(stdout);
         });
     });
 }
 
-if (args.length > 0 && args[0] === 'setup') {
+if (argv.setup) {
     setup();
 } else {
     defaultCommand();
