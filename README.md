@@ -5,6 +5,8 @@
 
 `@felipemantilla01/commit` is a tool that facilitates the generation of commit messages using AI to analyze file changes and generate concise and well-structured commit messages. It is designed for developers who want to improve the quality of their commit messages and streamline the commit process.
 
+![Demo](./assets/demo.gif)
+
 ## Installation
 
 To install the package globally, use the following command:
