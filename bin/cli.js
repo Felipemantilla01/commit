@@ -201,7 +201,7 @@ async function generateCommitMessage(apiToken, filesContent, diff) {
                 Git diff:
                 ${diff}
 
-                Generate the commit message now:
+                Generate the commit message now using the provided information and return only the commit message without explanations.:
                 `
             }
         ]
