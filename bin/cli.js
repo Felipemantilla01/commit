@@ -225,7 +225,7 @@ async function generateCommitMessage(apiToken, filesContent, diff, commitTypes) 
                 6. Separate subject from body with a blank line
                 7. Wrap the body at 72 characters
                 8. Use the body to explain what and why, not how
-                9. the whole commit message should be on lower case
+                9. the whole commit message must be on lower case always
 
                 If multiple files or significant changes are involved, use a multi-line commit message with a brief subject line followed by a more detailed explanation in the body.
 
