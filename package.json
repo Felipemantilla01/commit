@@ -2,10 +2,10 @@
   "name": "@felipemantilla01/commit",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Felipemantilla01/commit"
+    "url": "https://github.com/Felipemantilla01/commit.git"
   },
   "version": "1.0.9",
-  "description": "",
+  "description": "A tool to generate commit messages using AI.",
   "main": "bin/cli.js",
   "type": "module",
   "scripts": {
@@ -17,8 +17,14 @@
   "files": [
     "bin/cli.js"
   ],
-  "keywords": [],
-  "author": "",
+  "homepage": "https://github.com/Felipemantilla01/commit#readme",
+  "keywords": [
+    "commit",
+    "git",
+    "ai",
+    "commit message"
+  ],
+  "author": "Felipe Mantilla",
   "license": "ISC",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.3",
