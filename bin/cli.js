@@ -38,7 +38,7 @@ async function setup() {
             type: 'list',
             name: 'aiProvider',
             message: 'Which AI provider do you want to use?',
-            choices: ['OpenAI', 'Anthropic'],
+            choices: ['Anthropic'],
         },
         {
             type: 'input',
