@@ -30,6 +30,17 @@ const argv = yargs(hideBin(process.argv))
     .help()
     .argv;
 
+const defaultCommitTypes = [
+    { name: 'feat', description: 'A new feature' },
+    { name: 'fix', description: 'A bug fix' },
+    { name: 'docs', description: 'Documentation only changes' },
+    { name: 'style', description: 'Changes that do not affect the meaning of the code' },
+    { name: 'refactor', description: 'A code change that neither fixes a bug nor adds a feature' },
+    { name: 'perf', description: 'A code change that improves performance' },
+    { name: 'test', description: 'Adding missing tests or correcting existing tests' },
+    { name: 'chore', description: 'Changes to the build process or auxiliary tools' },
+];
+
 async function setup() {
     console.log(chalk.blue('Running setup...'));
 
@@ -46,9 +57,38 @@ async function setup() {
             message: 'Enter your API token:',
             validate: input => input.length > 0 ? true : 'Please enter a valid token.',
         },
+        {
+            type: 'checkbox',
+            name: 'commitTypes',
+            message: 'Select the commit types you want to use:',
+            choices: defaultCommitTypes.map(type => ({
+                name: `${type.name} - ${type.description}`,
+                value: type,
+                checked: true
+            })),
+            validate: (answer) => {
+                if (answer.length < 1) {
+                    return 'You must choose at least one commit type.';
+                }
+                return true;
+            },
+        },
+        {
+            type: 'input',
+            name: 'customCommitTypes',
+            message: 'Enter any additional custom commit types (comma-separated, format: type:description):',
+            filter: (input) => input.split(',').map(type => {
+                const [name, description] = type.split(':').map(s => s.trim());
+                return { name, description };
+            }).filter(type => type.name && type.description),
+        },
     ];
 
     const answers = await prompt(questions);
+
+    // Combine selected types with custom types
+    answers.commitTypes = [...answers.commitTypes, ...answers.customCommitTypes];
+    delete answers.customCommitTypes;
 
     // Save configuration
     const config = JSON.stringify(answers, null, 2);
@@ -90,7 +130,7 @@ async function defaultCommand() {
     const filesContent = await getFilesContent(stagedFiles);
 
     // Generate commit message using Claude
-    const commitMessage = await generateCommitMessage(config.apiToken, filesContent, diff);
+    const commitMessage = await generateCommitMessage(config.apiToken, filesContent, diff, config.commitTypes);
 
     console.log(chalk.cyan('\n=== Generated Commit Message ==='));
     console.log(chalk.white('----------------------------------'));
@@ -161,7 +201,7 @@ async function getFilesContent(files) {
     return content;
 }
 
-async function generateCommitMessage(apiToken, filesContent, diff) {
+async function generateCommitMessage(apiToken, filesContent, diff, commitTypes) {
     const anthropic = new Anthropic({
         apiKey: apiToken,
     });
@@ -176,14 +216,7 @@ async function generateCommitMessage(apiToken, filesContent, diff) {
                 Analyze the following Git diff and file contents to generate a concise, informative commit message following these best practices:
 
                 1. Start with a commit type prefix followed by a colon and space. Use one of these types:
-                    - feat: A new feature
-                    - fix: A bug fix
-                    - docs: Documentation only changes
-                    - style: Changes that do not affect the meaning of the code (white-space, formatting, etc)
-                    - refactor: A code change that neither fixes a bug nor adds a feature
-                    - perf: A code change that improves performance
-                    - test: Adding missing tests or correcting existing tests
-                    - chore: Changes to the build process or auxiliary tools and libraries such as documentation generation
+                    ${commitTypes.map(type => `- ${type.name}: ${type.description}`).join('\n                    ')}
 
                 2. After the type, use the imperative mood (e.g., 'Add feature' not 'Added feature')
                 3. Keep the first line (subject) under 50 characters, including the type
