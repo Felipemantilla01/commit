@@ -2,7 +2,7 @@
   "name": "@felipemantilla01/commit",
   "version": "1.0.3",
   "description": "",
-  "main": "index.js",
+  "main": "bin/cli.js",
   "type": "module",
   "scripts": {
     "release": "npm version patch && git push && git push --tags && npm publish"
