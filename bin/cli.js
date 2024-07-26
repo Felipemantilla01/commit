@@ -78,8 +78,8 @@ async function defaultCommand() {
         return;
     }
 
-    // Read files in staging
-    const stagedFiles = await getStagedFiles();
+    // Read files in staging and get diff
+    const { files: stagedFiles, diff } = await getStagedFilesAndDiff();
 
     if (stagedFiles.length === 0 || stagedFiles[0] === '') {
         console.log(chalk.yellow('No files in staging. Add files before committing.'));
@@ -90,7 +90,7 @@ async function defaultCommand() {
     const filesContent = await getFilesContent(stagedFiles);
 
     // Generate commit message using Claude
-    const commitMessage = await generateCommitMessage(config.apiToken, filesContent);
+    const commitMessage = await generateCommitMessage(config.apiToken, filesContent, diff);
 
     console.log(chalk.cyan('\n=== Generated Commit Message ==='));
     console.log(chalk.white('----------------------------------'));
@@ -122,7 +122,7 @@ async function defaultCommand() {
     }
 }
 
-async function getStagedFiles() {
+async function getStagedFilesAndDiff() {
     return new Promise((resolve, reject) => {
         exec('git diff --cached --name-only', (error, stdout, stderr) => {
             if (error) {
@@ -133,7 +133,20 @@ async function getStagedFiles() {
                 reject(`Error getting staged files: ${stderr}`);
                 return;
             }
-            resolve(stdout.trim().split('\n'));
+            const files = stdout.trim().split('\n');
+            
+            // Get the diff for staged files
+            exec('git diff --cached', (diffError, diffStdout, diffStderr) => {
+                if (diffError) {
+                    reject(`Error getting diff: ${diffError.message}`);
+                    return;
+                }
+                if (diffStderr) {
+                    reject(`Error getting diff: ${diffStderr}`);
+                    return;
+                }
+                resolve({ files, diff: diffStdout });
+            });
         });
     });
 }
@@ -148,7 +161,7 @@ async function getFilesContent(files) {
     return content;
 }
 
-async function generateCommitMessage(apiToken, filesContent) {
+async function generateCommitMessage(apiToken, filesContent, diff) {
     const anthropic = new Anthropic({
         apiKey: apiToken,
     });
@@ -160,7 +173,7 @@ async function generateCommitMessage(apiToken, filesContent) {
             {
                 role: "user",
                 content: `
-                Analyze the following Git diff and generate a concise, informative commit message following these best practices:
+                Analyze the following Git diff and file contents to generate a concise, informative commit message following these best practices:
 
                 1. Start with a commit type prefix followed by a colon and space. Use one of these types:
                     - feat: A new feature
@@ -182,8 +195,11 @@ async function generateCommitMessage(apiToken, filesContent) {
 
                 If multiple files or significant changes are involved, use a multi-line commit message with a brief subject line followed by a more detailed explanation in the body.
 
-                Git diff:
+                File contents:
                 ${filesContent}
+
+                Git diff:
+                ${diff}
 
                 Generate the commit message now:
                 `
