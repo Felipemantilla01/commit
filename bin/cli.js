@@ -218,13 +218,14 @@ async function generateCommitMessage(apiToken, filesContent, diff, commitTypes) 
                 1. Start with a commit type prefix followed by a colon and space. Use one of these types:
                     ${commitTypes.map(type => `- ${type.name}: ${type.description}`).join('\n                    ')}
 
-                2. After the type, use the imperative mood (e.g., 'Add feature' not 'Added feature')
+                2. After the type, use the imperative mood (e.g., 'add feature' not 'added feature')
                 3. Keep the first line (subject) under 50 characters, including the type
                 4. Capitalize the subject line after the commit type
                 5. Do not end the subject line with a period
                 6. Separate subject from body with a blank line
                 7. Wrap the body at 72 characters
                 8. Use the body to explain what and why, not how
+                9. the whole commit message should be on lower case
 
                 If multiple files or significant changes are involved, use a multi-line commit message with a brief subject line followed by a more detailed explanation in the body.
 
