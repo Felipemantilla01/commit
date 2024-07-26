@@ -4,7 +4,7 @@
     "type": "git",
     "url": "https://github.com/Felipemantilla01/commit.git"
   },
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "A tool to generate commit messages using AI.",
   "main": "bin/cli.js",
   "type": "module",
